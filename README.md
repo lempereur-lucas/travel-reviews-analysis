@@ -1,5 +1,5 @@
 # TripAdvisor's Travel Reviews Analysis
-Lucas Lempereur
+Built with R(RStudio & R Markdwon).
 
 <br>
 
