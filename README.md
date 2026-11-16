@@ -18,10 +18,10 @@ Note: `Parks` exhibits near-zero variance and was excluded prior to dimensionali
 
 ## 2. Methodology
 1. **Exploratory Data Analysis (EDA):** Distribution profiling, variance analysis, and bivariate correlation testing (identifying high-correlation / low-slope traps such as *Parks vs. Juice bars*).
-2. **Dimensionality Reduction (PCA):** Standardized Principal Component Analysis (`dudi.pca`) on the 9 active variables to map underlying preference axes.
+2. **Dimensionality Reduction (PCA):** Standardized Principal Component Analysis (`dudi.pca`) on the 9 active variables to map underlying preference axes. ![](figures/s.cocircle-tripadvisor.png)
 3. **Dual Hierarchical Clustering (Ward's Method):**
    - *Activity Clustering:* Grouping variables to identify product ecosystems.
-   - *User Segmentation:* Silhouette-validated clustering `k = 2` to isolate high-value consumer segments.
+   - *User Segmentation:* Silhouette-validated clustering `k = 2` to isolate high-value consumer segments. ![](figures/pie-tripadvisor.png)
 
 <br>
 
@@ -31,6 +31,7 @@ Note: `Parks` exhibits near-zero variance and was excluded prior to dimensionali
   1. *Free & Spiritual* (Religious institutions, Beaches)
   2. *Accommodation & Nightlife* (Resorts, Dance clubs, Juice bars)
   3. *Culture & Gastronomy* (Museums, Art galleries, Theaters, Restaurants)
+ ![](figures/hclust-tripadvisor.png)
 - **Asymmetric User Segmentation (80/20 Split):** User clustering isolates a dominant segment (~80% of the user base) driving engagement across paid infrastructure and integrated complexes, distinct from low-spend/free-activity travelers.
 - **Actionable Strategy:**
   - **Platform Algorithm:** Transition from location-based suggestions to semantic bundle recommendations within the same cluster.
