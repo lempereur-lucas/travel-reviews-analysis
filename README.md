@@ -18,10 +18,12 @@ Note: `Parks` exhibits near-zero variance and was excluded prior to dimensionali
 
 ## 2. Methodology
 1. **Exploratory Data Analysis (EDA):** Distribution profiling, variance analysis, and bivariate correlation testing (identifying high-correlation / low-slope traps such as *Parks vs. Juice bars*).
-2. **Dimensionality Reduction (PCA):** Standardized Principal Component Analysis (`dudi.pca`) on the 9 active variables to map underlying preference axes. ![](figures/s.cocircle-tripadvisor.png)
+2. **Dimensionality Reduction (PCA):** Standardized Principal Component Analysis (`dudi.pca`) on the 9 active variables to map underlying preference axes.
+![](figures/s.cocircle-tripadvisor.png)
 3. **Dual Hierarchical Clustering (Ward's Method):**
    - *Activity Clustering:* Grouping variables to identify product ecosystems.
-   - *User Segmentation:* Silhouette-validated clustering `k = 2` to isolate high-value consumer segments. ![](figures/pie-tripadvisor.png)
+   - *User Segmentation:* Silhouette-validated clustering `k = 2` to isolate high-value consumer segments.
+![](figures/pie-tripadvisor.png)
 
 <br>
 
