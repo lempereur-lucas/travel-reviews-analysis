@@ -1,0 +1,760 @@
+---
+title: "Travel reviews on TripAdvisor"
+author: "Lucas Lempereur"
+date: '2026'
+output:
+  ioslides_presentation: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+# 1. Loading the dataset
+   
+dataset_tripadvisor <- read.csv('data/dataset-tripadvisor.csv')
+
+    # Removing the ‘User Id’ column and use it as the row header
+rownames(dataset_tripadvisor) <- dataset_tripadvisor$User.ID
+tripadvisor <- dataset_tripadvisor[, -1]
+
+
+# 2. Loading the libraries 
+library(car)
+library(corrplot)
+library(knitr)
+library(ade4)
+library(plotrix)
+library(cluster)
+library(factoextra)
+library(plotly)
+
+# 3. Renaming columns and assign colours to columns
+
+colnames(tripadvisor) <- c("Art", "Clubs", "Juices", "Rests.", "Museums", 
+                  "Resorts", "Parks", "Beaches", "Theaters", "Religious")
+valeurs_couleurs <- c(
+  "lavender",      # Art
+  "mistyrose",     # Clubs 
+  "wheat1",        # Juices
+  "rosybrown1",    # Rests.
+  "antiquewhite2", # Museums
+  "paleturquoise1",# Resorts 
+  "darkseagreen1", # Parks
+  "lightblue1",    # Beaches
+  "lightpink1",    # Theaters 
+  "lemonchiffon1"  # Religious
+)
+mes_couleurs <- valeurs_couleurs
+names(mes_couleurs) <- colnames(tripadvisor)
+
+
+# 4. Replacing the NA values with 0 (or the mean) so that there are values for every cell in the dataset
+
+#for (i in 1:ncol(tripadvisor)) { 
+#  na_tripadvisor <- is.na(tripadvisor[, i])
+#  if (any(na_tripadvisor)) { 
+#    tripadvisor[is.na(tripadvisor[, i]), i] <- median(tripadvisor[, i], na.rm = TRUE)
+#    }
+#  }
+
+```
+
+
+## Table of contents
+
+<div style="margin-top: 10%; font-size: 110%; line-height: 1.8;">
+
+1. **The Context **- Understanding the data
+
+2. **The Exploration ** - Descriptive statistics
+
+3. **The Structure ** - Principal Component Analysis
+
+4. **The Segmentation **- Clustering
+
+5. **Conclusion **- Key finding of the analysis
+
+</div>
+
+
+# The Context
+
+
+## Where does the data come from?
+
+**"Travel Reviews" dataset**
+
+<div style="margin-top: 10%; font-size: 75%; line-height: 1.8;">
+- Official source: UCI Machine Learning Repository (University of California).
+- Data source: extracted (crawled) from the TripAdvisor.com website.
+- Authors: Shini Renjith, A. Sreekumar, and M. Jathavedan (2018).
+- Geographical context: destinations located in East Asia.
+
+
+## Structure of the data
+
+<div style="margin-top: 5%; font-size: 85%; line-height: 1.05;">
+<ul>
+  <li><strong>Number of observations:</strong> 980 unique users</li>
+  <br>
+  <li><strong>Number of variables:</strong> 11 columns
+    <ul>
+      <li>1 user ID</li>
+      <li>10 continuous quantitative variables</li>
+    </ul>
+  </li>
+  <br>
+  <li><strong>Rating system:</strong>
+    <ul>
+      <li>Weighted means per user</li>
+      <li>Scale from 0 (Terrible) to 4 (Excellent)</li>
+    </ul>
+  </li>
+  <br>
+  <li><strong>Data type:</strong> <ul>
+      <li>Multivariable</li>
+      <li>Real</li>
+    </ul>
+  </li>
+  <br>
+  <li><strong>Missing data:</strong> none (complete dataset)</li> </ul>
+
+</div>
+
+
+## The variables : activities
+
+<div style="margin-top: 5%; font-size: 75%; line-height: 1.8;">
+  1. *Art galleries *
+  2. *Dance clubs *
+  3. *Juice bars *
+  4. *Restaurants*
+  5. *Museums *
+  6. *Resorts *
+  7. *Parks/picnic spots *
+  8. *Beaches *
+  9. *Theaters *
+  10. *Religious institutions *
+
+
+# The Exploration
+
+
+## Key indicators
+
+```{r, comment = ""}
+
+# 1. Creating a table summarising the data (minimum, maximum, median, mean, quantiles, standard deviations)
+
+  # Calculate each statistic separately for all columns
+mins    <- sapply(tripadvisor, min)
+q1s     <- sapply(tripadvisor, quantile, probs = 0.25)
+medians <- sapply(tripadvisor, median)
+means   <- sapply(tripadvisor, mean)
+q3s     <- sapply(tripadvisor, quantile, probs = 0.75)
+maxs    <- sapply(tripadvisor, max)
+sds     <- sapply(tripadvisor, sd)
+  # Compile all the data into a data frame
+tableau_resume <- data.frame(
+  Minimum = mins,
+  Q1 = q1s,
+  Median = medians,
+  Mean = means,
+  Q3 = q3s,
+  Maximum = maxs,
+  SD = sds
+)
+  # Round the figures so that they are easy to read (to two decimal places)
+tableau_resume <- round(tableau_resume, 2)
+
+  # Display the result in the console
+print(tableau_resume)
+```
+
+
+## What is preferred?
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+Ranking showing travellers’ **average** preferences.
+
+```{r}
+  # BARPLOT
+    # Margins
+par(mar=c(5, 10, 4, 2))
+    # Horizontal barplot of mean rating
+bp <- barplot(sort(means), 
+        horiz = TRUE,               
+        las = 1,
+        col = mes_couleurs[names(sort(colMeans(tripadvisor, na.rm = TRUE)))],
+        main = "Mean rating per activity",
+        xlab = "Mean rating",
+        border = NA,
+        xlim = c(0, 4))
+    # Adding values
+text(x = sort(means), 
+     y = bp, 
+     labels = round(sort(means), 2), 
+     pos = 4,
+     cex = 0.8,
+     col = "black")
+    # Adding a visual marker
+abline(v = mean(sort(means)), col = rgb(0, 0, 0, 0.4), lty = 2, lwd = 2)
+```
+
+
+## Mixed or unanimous opinions?
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+Information on the **reliability** of mean ratings and the **consistency** of reviews.
+
+```{r}
+ # BARPLOT
+    # Graphical window
+par(mar = c(5, 10, 4, 4))
+    # Horizontal barplot of standard deviations
+barplot(sort(sds),
+        horiz = TRUE, 
+        las = 1,
+        col = mes_couleurs[names(sort(sds))],
+        main = "Variations in opinions", 
+        xlab = "Variation in ratings",
+        border = NA,
+        xlim = c(0, max(sds) * 1.2))
+    # Adding values
+text(x = sort(sds), 
+     y = bp, 
+     labels = round(sort(sds), 2), 
+     pos = 4,      
+     cex = 0.8,
+     col = "#505050")
+    # Adding a visual marker
+abline(v = mean(sort(sds)), col = rgb(0, 0, 0, 0.4), lty = 2, lwd = 2)
+```
+
+
+## The reality of distributions
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 70%">
+**Comparison** between histograms, showing the **actual distribution of ratings**, and the normal distribution, representing the **theory**.
+
+```{r}
+  # HISTOGRAM FOR EACH ACTIVITY AND NORMAL DISTRIBUTION
+    # Graphical window
+par(mfrow=c(2, 5), mar=c(2, 2, 2, 1)) 
+    # Display
+for (i in 1:ncol(tripadvisor)) { 
+  hist(tripadvisor[, i], 
+       main = names(tripadvisor)[i],     
+       xlab = "", ylab = "",
+       col = mes_couleurs[names(tripadvisor)[i]],  
+       border = "white",        
+       breaks = 15,
+       prob = TRUE,
+       main.cex = 1.2,
+       yaxt = "n")          
+  x_vals <- seq(min(tripadvisor[, i]), max(tripadvisor[, i]), length = 100)
+  y_vals <- dnorm(x_vals, mean = mean(tripadvisor[, i]), sd = sd(tripadvisor[, i]))
+  lines(x_vals, y_vals, col = "#505050", lwd = 1.5)
+}
+    # Reset
+par(mfrow=c(1, 1), mar=c(5, 4, 4, 2) + 0.1)
+```
+
+
+## Anomaly detected
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0%; font-size: 75%">
+**Unanimous agreement** from travellers.
+
+<div style="width: 55%; text-align: center;">
+```{r}
+  # BARPLOT FOR PARKS
+    # Display
+barplot(table(tripadvisor$Parks), 
+        main = "Rating scale: Parks",
+        xlab = "Rating assigned",
+        ylab = "Number of users",
+        col= "darkseagreen1", 
+        border = NA,
+        las = 1)
+```
+
+
+## Competition between activities
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+Unlike individual histograms, this graph places the variables in **direct competition**.
+
+```{r}
+  # BOXPLOTS FOR EACH ACTIVITIES
+    # Margins
+par(mar=c(8, 4, 2, 1)) 
+    # Display
+boxplot(tripadvisor, 
+        main = NULL,
+        col = mes_couleurs[names(tripadvisor)], 
+        las = 2, 
+        ylab = "Rating assigned")
+    # Reset
+par(mar=c(5, 4, 4, 2)) 
+```
+
+
+## Structure of preferences
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+Clear **links** and **relationships** between the variables.
+
+```{r}
+  # CORRELATION MATRIX
+    # Display
+corrplot(cor(tripadvisor), 
+         method = "ellipse",       
+         type = "upper",           
+         col = COL2('RdBu', 10),   
+         addCoef.col = "black",    
+         number.cex = 0.7,        
+         tl.col = "black",         
+         tl.srt = 45,              
+         diag = FALSE,             
+         order = "hclust",        
+         addrect = 3,              
+         rect.col = "black",      
+         rect.lwd = 2,             
+         mar = c(0,0,1,0))
+```
+
+
+## Overview
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 70%">
+**Scan** of possible relationships between the variables.
+
+```{r}
+  # SCATTERPLOT AND REGRESSION LINE
+    # Custom function for the bottom panel
+panel.custom <- function(x, y, ...) {
+  points(x, y, pch = 20, col = rgb(0, 0, 0, 0.3), cex = 0.5)
+  abline(lm(y ~ x), col = "#e78ac3", lwd = 2)
+}
+    # Display
+pairs(tripadvisor, 
+      lower.panel = panel.custom, 
+      upper.panel = NULL,         
+      diag.panel = NULL,          
+      gap = 0,
+      cex.labels = 0.8)
+```
+
+
+
+## Closer look at the relationship between "Parks" and "Juices"
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 70%">
+**Correlation trap**: the correlation coefficient is **strong** but the impact on *Parks* is **weak**.
+
+```{r}
+    # The relationship between Parks and Juices
+scatterplot(Parks ~ Juices, 
+            data = tripadvisor, 
+            pch = 19,                  
+            cex = 0.5,
+            col = rgb(0, 0, 0, 0.4),
+            ylim = c(2, 4),
+            cex.lab = 1.25,
+            cex.main = 1.5,
+            cex.axis = 1.125,
+            col.main = "#e78ac3",
+            regLine = list(col = "#e78ac3", lwd = 2),
+            smooth = FALSE,
+            ellipse = FALSE,
+            boxplots = FALSE,
+            grid = FALSE, 
+            xlab = "Juice Bars ratings", 
+            ylab = "Parks ratings",
+            main = paste("Strong correlation (R =", round(cor(tripadvisor$Juices, tripadvisor$Parks, use = "complete.obs"), 2), ") but with no impact"))
+```
+
+
+## Closer look at the relationship between "Museums" and "Resorts"
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 70%">
+**Counter-example**: a mathematically **weaker** correlation but a **steeper** slope.
+
+```{r}
+    # Relationship entre Museums et Resorts
+scatterplot(Museums ~ Resorts, 
+            data = tripadvisor, 
+            pch = 19,                  
+            cex = 0.5,
+            col = rgb(0, 0, 0, 0.4),
+            cex.lab = 1.25,
+            cex.main = 1.5,
+            cex.axis = 1.125,
+            col.main = "#e78ac3",
+            regLine = list(col = "#e78ac3", lwd = 2),
+            smooth = FALSE,
+            ellipse = list(levels = 0.95, col="#e78ac3", fill=TRUE, fill.alpha=0.1),
+            boxplots = FALSE,
+            grid = FALSE, 
+            xlab = "Resorts ratings", 
+            ylab = "Museums ratings",
+            main = paste("Active relationship (R =", round(cor(tripadvisor$Museums, tripadvisor$Resorts, use = "complete.obs"), 2), ")"))
+```
+
+
+## Closer look at the relationship between "Beaches" and "Resorts"
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+**Complete independence**, no linear relationship.
+
+```{r}
+    # Relationship between Beaches and Resorts
+scatterplot(Beaches ~ Resorts, 
+            data = tripadvisor, 
+            pch = 19,                  
+            cex = 0.5,
+            col = rgb(0, 0, 0, 0.4),
+            cex.lab = 1.25,
+            cex.main = 1.5,
+            cex.axis = 1.125,
+            col.main = "#e78ac3",
+            regLine = list(col = "#e78ac3", lwd = 2),
+            smooth = FALSE,
+            ellipse = list(levels = 0.95, col="#e78ac3", fill=TRUE, fill.alpha=0.1),
+            boxplots = FALSE,
+            grid = FALSE, 
+            xlab = "Resorts ratings", 
+            ylab = "Beaches ratings",
+            main = paste("Independence of preferences (R =", round(cor(tripadvisor$Beaches, tripadvisor$Resorts, use = "complete.obs"), 2), ")"))
+```
+
+
+# The structure
+
+
+## Cleaning 
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+- **The findings**
+<br>
+
+The standard deviation ($\sigma$) of the variable *Parks* is **`r sd(tripadvisor$Parks)`**. It is a virtually constant variable.
+<br>
+
+- **The mathematical danger**
+<br>
+
+The PCA standardises the data using the following formula:
+$$Z = \frac{X - \mu}{\sigma}$$
+<br>
+
+- **The "distorting magnifying glass" effect**
+<br>
+
+Dividing by **`r sd(tripadvisor$Parks)`** is equivalent to **multiplying by `r round(1/sd(tripadvisor$Parks), 0)`**.
+Even the slightest micro-variation (noise) in *Parks* would have taken on disproportionate significance relative to the other variables, obscuring the actual structure of the data.
+<br>
+</div>
+
+```{r}
+# 1. Preparing the data
+
+  # Remove "Parks" from the dataset as its variance is zero
+tripadvisor2 <- tripadvisor[, colnames(tripadvisor) != "Parks"]
+```
+
+
+## How many axes are required?
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+**Simplification** to summarise the reality as accurately as possible.
+
+```{r}
+
+# 2. Calculating PCA (dudi.pca)
+
+  # Display, center = TRUE, scale = TRUE : standardised PCA
+trip_acp <- dudi.pca(tripadvisor2, center = TRUE, scale = TRUE, scannf = FALSE, nf = 5)
+
+
+# 3. Principal component analysis: how much information does it provide?
+
+  # Calculating percentages
+eig_val <- trip_acp$eig
+eig_pct <- round(eig_val / sum(eig_val) * 100, 1)
+
+  # PLOT OF SCREENING MATERIAL
+    # Graphical window
+par(mfrow=c(1, 1), mar=c(5, 5, 4, 2))
+    # Display
+bp <- barplot(eig_pct, 
+        names.arg = paste0("Axis ", 1:length(eig_pct)),
+        main = "Cascade of eigenvalues",
+        ylab = "% variance",
+        col = "#505050",
+        ylim = c(0, 110))
+    # Adding points and lines for cumulative variance
+cumexpvar<-round(cumsum(trip_acp$eig/sum(trip_acp$eig)*100),0)
+lines(bp,cumexpvar,col ="#e78ac3")
+points(bp,cumexpvar,col ="#e78ac3")
+text(x = bp, 
+     y = cumexpvar, 
+     labels = paste0(round(cumexpvar, 0), "%"), 
+     pos = 3,       
+     cex = 0.8,    
+     col = "#e78ac3", 
+     font = 2)
+```
+
+
+## The DNA of the axes
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+**Weight** of each variable in the **construction** of the axis.
+
+```{r, comment = ""}
+  # Table of contributions
+    # Calculation of contributions
+contrib_var <- trip_acp$co^2
+for(i in 1:5) {
+  contrib_var[,i] <- (contrib_var[,i] / trip_acp$eig[i]) * 100
+}
+    # Rounding 
+tableau_arrondi <- round(contrib_var[, 1:5], 2)
+    # Creating a table
+tableau_final <- as.data.frame(lapply(tableau_arrondi, function(x) paste0(x, " %")))
+    # Naming lines (activities) that disappear with lapply
+rownames(tableau_final) <- rownames(contrib_var)
+    # Display of the results
+print(tableau_final)
+    # Calculating mean
+moyennes_calculees <- colMeans(tableau_arrondi) 
+    # Rounding and adding the %
+moyenne_tableau <- as.data.frame(t(paste0(round(moyennes_calculees, 2), " %")))
+    # Naming of columns
+colnames(moyenne_tableau) <- colnames(tableau_arrondi)
+    # Naming the line
+rownames(moyenne_tableau) <- "Limit"
+    # Display
+print(moyenne_tableau)
+```
+
+
+## Preference compass
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+**Interpretation**, **structure** and **reliability**.
+
+```{r}
+  # CORRELATION CIRCLE
+    # Margins
+par(mar=c(2, 2, 2, 2))
+    # Display
+s.corcircle(trip_acp$co, 
+            xax = 1, yax = 2,   
+            label = rownames(trip_acp$co), 
+            clabel = 1,        
+            grid = TRUE,         
+            sub = "Structure of activities, PC1 vs PC2", 
+            csub = 1.2)
+```
+
+
+## Our travellers’ map
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+**Identifying** travellers using our **compass**.
+
+```{r}
+  # PROJECTION OF INDIVIDUALS
+s.label(trip_acp$li, 
+        xax = 1, yax = 2,
+        clabel = 0,
+        cpoint = 1,
+        pch = 20,
+        sub = "User projection",
+        csub = 1.2)
+```
+
+
+# The Segmentation
+
+
+## The judge of our segmentation
+<div style="margin-top: 0% ; font-size: 75%">
+**Measuring** the actual **quality** of the cut.
+
+```{r}
+# 1. How many clusters ?
+
+ # Silhouette method
+    # Parameters
+k.max <- 10
+Silhouette <- rep(0, k.max)
+for(i in 2:k.max){
+  km.res <- kmeans(tripadvisor, centers = i, nstart = 25)
+  ss <- silhouette(km.res$cluster, dist(tripadvisor))
+  Silhouette[i] <- mean(ss[, 3])
+}
+    # Display
+plot(1:k.max, Silhouette, type = "b", pch = 19, 
+     frame = FALSE, xlab = "Number of clusters k", main="Number of optimal clusters")
+abline(v = which.max(Silhouette), lty = 2, col = "#e78ac3")
+```
+
+
+## Market shares
+<div style="margin-top: 0% ; font-size: 75%">
+**Allocation** determining how we distribute our **resources**.
+
+```{r, comment = ""}
+# 2. Hierarchical clustering of our individuals
+     
+  # Hierarchical clustering of the dataset excluding "Parks"
+distances <- dist(scale(tripadvisor2), method = "euclidean")
+clustering_i <- hclust(distances, method = "ward.D2")
+groupes_2 <- cutree(clustering_i, k = 2)
+comptage_voyageurs <- table(groupes_2)
+
+  # Table of ratings mean
+groupes_finaux <- cutree(clustering_i, k = 2)
+profils <- aggregate(tripadvisor2, by = list(Cluster = groupes_finaux), FUN = mean)
+rownames(profils) <- paste("Group", profils$Cluster)
+profils <- profils[, -1] 
+ligne_ecart <- abs(profils[1, ] - profils[2, ])
+tableau_final <- rbind(profils, Difference = ligne_ecart)
+tableau_final <- round(tableau_final, 2)
+print(tableau_final)
+
+  # PIECHART
+    # Graphical window
+par(mfrow=c(2, 1), mar=c(1.5, 1, 2, 1)) 
+    # Display
+pie(comptage_voyageurs, 
+    main = "",
+    col = c("#e78ac3", "#505050"), 
+    labels = paste("Group", names(comptage_voyageurs), ":", comptage_voyageurs, "travelers"))
+```
+
+
+## Travellers’ topography
+<div style="margin-top: 0% ; font-size: 75%">
+No clear **break**, making an **artificial** cut.
+
+```{r}
+  # 3D PLOT (CLUSTERS)
+    # Preparing 3D data
+set.seed(123)
+donnees_3d <- data.frame(
+  Axe1 = trip_acp$li[, 1],
+  Axe2 = trip_acp$li[, 2],
+  Axe3 = trip_acp$li[, 3],
+  Cluster = as.factor(groupes_2)
+)
+      # Display
+plot_ly(donnees_3d, 
+        x = ~Axe1, 
+        y = ~Axe2, 
+        z = ~Axe3, 
+        color = ~Cluster, 
+        colors = c("#e78ac3", "#505050"), 
+        type = "scatter3d", 
+        mode = "markers",
+        marker = list(size = 2, opacity = 0.8))%>%
+  layout(
+    showlegend = FALSE,
+    scene = list(
+      xaxis = list(title = "Axis 1", showgrid = TRUE),
+      yaxis = list(title = "Axis 2", showgrid = TRUE),
+      zaxis = list(title = "Axis 3", showgrid = TRUE),
+      camera = list(eye = list(x = 1.5, y = 1.5, z = 1.5))
+    )
+  )
+```
+
+
+## Supply Strategy
+<div style="margin-top: 0% ; font-size: 75%">
+Selling **ecosystems** rather than 9 **isolated** products.
+
+```{r}
+# 3. Hierarchical clustering of our activities
+
+  # Clustering of the transpose of the dataset excluding "Parks"
+distances <- dist(t(tripadvisor2), method = "euclidian")
+clustering_a <- hclust(distances, method = "ward.D2")
+
+  # DENDOGRAM
+    # Margins
+par(mar=c(5, 4, 4, 2))
+    # Display
+plot(clustering_a, 
+     main = "Similarities between activities",
+     xlab = "", 
+     ylab = "",
+     sub = "",
+     hang = -1,
+     col = "black",
+     lwd = 2)
+      # Adding of a box to separate the groups
+rect.hclust(clustering_a, k = 3, border = "#e78ac3")
+```
+
+
+# Conclusion
+
+
+## New structure of the supply
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+- **The supply strategy**
+<br>
+
+The activities are therefore not **independent**, 3 **consumer ecosystems** have been identified:
+
+1. The *free & spiritual* package
+2. The *overnight stay & accommodation* package
+3. The *culture & tasting* package
+<br>
+
+- **Involvement**
+<br>
+
+Any marketing strategy that attempts to sell a product from the *first pack* to a customer looking for the *second pack* is doomed to failure (the mathematical distance is too great).
+<br>
+
+- **The targeting strategy**
+<br>
+
+The divide here lies in the use of services, with **absolute priority** given to the group using toll infrastructure.
+<br>
+</div>
+
+
+## Recommandations 
+
+<div style="display: flex; align-items: center;">
+<div style="margin-top: 0% ; font-size: 75%">
+- **Tripadvisor**
+<br>
+
+The current algorithm often suggests *popular activities nearby* without ensuring consistency.\
+The **opportunity** presented by this analysis is to move from a geographical recommendation to a **semantic recommendation**.
+<br>
+
+- **Local stakeholders**
+<br>
+
+They won’t be able to please everyone.\
+**Partnerships** (B2B) must be established on this same **semantic** basis.
+<br>
+
+- **Investors**
+<br>
+
+80% of the budget must be allocated to the paid-activity consumer group.\
+Funding large **integrated complexes** is one way of capturing the **customer base** of these individuals.
+</div>
+
